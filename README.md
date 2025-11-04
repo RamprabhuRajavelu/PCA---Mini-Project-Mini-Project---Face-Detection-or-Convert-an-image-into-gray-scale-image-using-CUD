@@ -1,148 +1,112 @@
-# Convert Image to Grayscale image using CUDA 
-
-### NAME    : Bharath Raj P
-### REG NO  : 212223230031
+# PCA-Mini-Project---Face-Detection-or-Convert-an-image-into-gray-scale-image-using-CUD
+### NAME    : RAMPRABHU R
+### REG NO  : 212222040129
 ## AIM:
+To develop and implement a CUDA-based GPU program that converts a color image into a grayscale image, and to compare the performance between GPU and CPU implementations.
 
-The aim of this project is to demonstrate how to convert an image to grayscale using CUDA programming without relying on the OpenCV library. It serves as an example of GPU-accelerated image processing using CUDA.
+## APPARATUS REQUIRED:
+**SOFTWARE**
 
-## Procedure:
-1. Load the input image using the stb_image library.
-2. Allocate memory on the GPU for the input and output image buffers.
-3. Copy the input image data from the CPU to the GPU.
-4. Define a CUDA kernel function that performs the grayscale conversion on each pixel of the image.
-5. Launch the CUDA kernel with appropriate grid and block dimensions.
-6. Copy the resulting grayscale image data from the GPU back to the CPU.
-7. Save the grayscale image using the stb_image_write library.
-8. Clean up allocated memory.
+1.Google Colab
 
-## Program:
-```c++
-#include <stdio.h>
-#include <string>
-#include <math.h>
-#include <iostream>
-#include <opencv2/core/core.hpp>
-#include <opencv2/highgui/highgui.hpp>
-#include <opencv2/imgproc/imgproc.hpp>
+2.Python 3.x
 
+3.Libraries: opencv-python, cupy-cuda12x, numpy
 
-__global__
-void colorConvertToGrey(unsigned char *rgb, unsigned char *grey, int rows, int cols)
-{
-	int col = threadIdx.x + blockIdx.x * blockDim.x;
-	int row = threadIdx.y + blockIdx.y * blockDim.y;
+**HARDWARE**
 
-	if (col < cols && row < rows)
-	{
-		int grey_offset = row * cols + col;
-		int rgb_offset = grey_offset * CHANNELS;
-	
-    	unsigned char r = rgb[rgb_offset + 0];
-	    unsigned char g = rgb[rgb_offset + 1];
-	    unsigned char b = rgb[rgb_offset + 2];
-	
-	    grey[grey_offset] = r * 0.299f + g * 0.587f + b * 0.114f;
-    }
-}
+1.NVIDIA GPU (CUDA supported)
 
-size_t loadImageFile(unsigned char *grey_image, const std::string &input_file, int *rows, int *cols );
+2.Internet connection (for Colab runtime)
 
-void outputImage(const std::string &output_file, unsigned char *grey_image, int rows, int cols);
+**Input**
 
-unsigned char *h_rgb_image; 
+Any color image file (.jpg, .png, etc.)
 
-int main(int argc, char **argv) 
-{
-	std::string input_file;
-	std::string output_file;
+## THEORY:
+Grayscale conversion reduces a three-channel color image (Red, Green, Blue) into a single intensity channel by eliminating color information while preserving luminance. The standard luminance equation used is:
 
-	switch(argc) {
-		case 3:
-			input_file = std::string(argv[1]);
-			output_file = std::string(argv[2]);
-            break;
-		default:
-			std::cerr << "Usage: <executable> input_file output_file";
-			exit(1);
-	}
-	
-	unsigned char *d_rgb_image; 
-	unsigned char *h_grey_image, *d_grey_image; 
-	int rows; 
-	int cols; 
-	
-	const size_t total_pixels = loadImageFile(h_grey_image, input_file, &rows, &cols);
+Y=0.299R+0.587G+0.114B
 
-	h_grey_image = (unsigned char *)malloc(sizeof(unsigned char*)* total_pixels);
+CUDA enables parallel computation by executing thousands of threads simultaneously on GPU cores. Using GPU (via CuPy in Python), pixel-wise grayscale conversion can be computed in parallel, significantly improving performance compared to CPU execution.
 
-	cudaMalloc(&d_rgb_image, sizeof(unsigned char) * total_pixels * CHANNELS);
-	cudaMalloc(&d_grey_image, sizeof(unsigned char) * total_pixels);
-	cudaMemset(d_grey_image, 0, sizeof(unsigned char) * total_pixels);
-	
-	cudaMemcpy(d_rgb_image, h_rgb_image, sizeof(unsigned char) * total_pixels * CHANNELS, cudaMemcpyHostToDevice);
+## PROCEDURE:
+1.Open Google Colab and enable GPU runtime (Runtime → Change runtime type → GPU → Save).
 
-	const dim3 dimGrid((int)ceil((cols)/16), (int)ceil((rows)/16));
-	const dim3 dimBlock(16, 16);
-	
-	colorConvertToGrey<<<dimGrid, dimBlock>>>(d_rgb_image, d_grey_image, rows, cols);
+2.Install required libraries: !pip install opencv-python cupy-cuda12x
 
-	cudaMemcpy(h_grey_image, d_grey_image, sizeof(unsigned char) * total_pixels, cudaMemcpyDeviceToHost);
+3.Upload a color image (files.upload() in Colab).
 
-	outputImage(output_file, h_grey_image, rows, cols);
-	cudaFree(d_rgb_image);
-	cudaFree(d_grey_image);
-	return 0;
-}
+4.Read the image using OpenCV and convert it into a CuPy GPU array.
 
-size_t loadImageFile(unsigned char *grey_image, const std::string &input_file, int *rows, int *cols) 
-{
-	cv::Mat img_data; 
+5.Apply the grayscale formula using GPU parallel computation: Y = 0.114 * B + 0.587 * G + 0.299 * R
 
-	img_data = cv::imread(input_file.c_str(), CV_LOAD_IMAGE_COLOR);
-	if (img_data.empty()) 
-	{
-		std::cerr << "Unable to laod image file: " << input_file << std::endl;
-	}
-		
-	*rows = img_data.rows;
-	*cols = img_data.cols;
+6.Convert the result back to the CPU and save it as grayscale_gpu.png.
 
-	h_rgb_image = (unsigned char*) malloc(*rows * *cols * sizeof(unsigned char) * 3);
-	unsigned char* rgb_image = (unsigned char*)img_data.data;
+7.Compare GPU time with CPU time using OpenCV’s cv2.cvtColor().
 
-	int x = 0;
-	for (x = 0; x < *rows * *cols * 3; x++)
-	{
-		h_rgb_image[x] = rgb_image[x];
-	}
-	
-	size_t num_of_pixels = img_data.rows * img_data.cols;
-	
-	return num_of_pixels;
-}
+8.Display the original and grayscale images for visual verification.
 
-void outputImage(const std::string& output_file, unsigned char* grey_image, int rows, int cols)
-{
+## PROGRAM:
+```
+!pip -q install -U opencv-python "cupy-cuda12x"
+!nvidia-smi || echo "GPU not detected"
 
-	cv::Mat greyData(rows, cols, CV_8UC1,(void *) grey_image);
-	cv::imwrite(output_file.c_str(), greyData);
-}
+from google.colab import files
+uploaded = files.upload()
+in_path = list(uploaded.keys())[0]
+
+import cv2, cupy as cp, numpy as np, time
+from google.colab.patches import cv2_imshow
+
+img_bgr = cv2.imread(in_path, cv2.IMREAD_COLOR)
+d_img = cp.asarray(img_bgr, dtype=cp.float32)
+weights = cp.array([0.114, 0.587, 0.299], dtype=cp.float32)
+
+start = cp.cuda.Event(); end = cp.cuda.Event()
+start.record()
+gray_gpu = cp.tensordot(d_img, weights, axes=([2],[0]))
+gray_gpu = cp.clip(gray_gpu + 0.5, 0, 255).astype(cp.uint8)
+end.record(); end.synchronize()
+gpu_ms = cp.cuda.get_elapsed_time(start, end)
+
+out_gpu = cp.asnumpy(gray_gpu)
+cv2.imwrite("grayscale_gpu.png", out_gpu)
+
+t0 = time.perf_counter()
+gray_cpu = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
+t1 = time.perf_counter()
+cpu_ms = (t1 - t0) * 1000
+
+print(f"\nCPU Time: {cpu_ms:.3f} ms")
+print(f"GPU Time: {gpu_ms:.3f} ms")
+print(f"Speed-Up ≈ {cpu_ms/gpu_ms:.2f}×")
+
+print("\nOriginal Image:")
+cv2_imshow(img_bgr)
+
+print("\nGrayscale Image (GPU Output):")
+cv2_imshow(out_gpu)
 ```
 
 ## OUTPUT:
 
-### Input Image
+<img width="265" height="84" alt="image" src="https://github.com/user-attachments/assets/ca81e9ca-b694-4a3a-9b53-1817ddb2a5d0" />
 
-<img width="389" height="389" alt="normal" src="[https://github.com/user-attachments/assets/cf1f0f2e-7762-4d7a-b7e6-c3bbd4043240](https://chatgpt.com/s/m_6909ae1a00908191af23e6b49c06e9e2)" /> 
+## COLOUR IMAGE:
 
+<img width="514" height="655" alt="image" src="https://github.com/user-attachments/assets/8cc8d908-4d78-484e-ac4f-5c688ca3d487" />
 
+## GRAYSCALE IMAGE:
 
+<img width="512" height="642" alt="image" src="https://github.com/user-attachments/assets/9f74ec38-ed4f-4e98-8be9-48f99911ddbf" />
 
-### Grayscale Image
+## RESULT:
+1.The color image was successfully converted into a grayscale image using GPU-based parallel computation.
 
-<img width="389" height="389" alt="gray" src="https://github.com/user-attachments/assets/9b201483-e5d0-4178-a5a2-473d9b8b87d2" />
+2.Execution on GPU was significantly faster than CPU for large images.
 
+3.The output image (grayscale_gpu.png) was saved and displayed in Colab.
 
-## Result:
-The CUDA program successfully converts the input image to grayscale using the GPU. The resulting grayscale image is saved as an output file. This example demonstrates the power of GPU parallelism in accelerating image processing tasks.
+## CONCLUSION:
+The experiment demonstrates how CUDA-based GPU programming can accelerate image processing tasks. By performing pixel-level computations in parallel, the grayscale conversion achieved substantial speed improvement over the traditional CPU method.
